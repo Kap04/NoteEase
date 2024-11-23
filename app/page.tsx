@@ -35,7 +35,9 @@ export default function LandingPage() {
                 </p>
               </div>
               <div className="space-x-4">
+                <Link href='/s'>
                 <Button>Get Started</Button>
+                </Link>
                 <Button variant="outline">Learn More</Button>
               </div>
             </div>
