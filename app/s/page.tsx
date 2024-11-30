@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import React, { useEffect, useState } from "react";
 import Markdown from "react-markdown";
@@ -72,6 +73,8 @@ function Page() {
   const [isTranslationSupported, setIsTranslationSupported] = useState<boolean | null>(null);
   const [isCheckingTranslation, setIsCheckingTranslation] = useState<boolean>(false);
 
+  const [activeTab, setActiveTab] = useState<"upload" | "write">("upload")
+
   const [summarizationType, setSummarizationType] = useState<'key-points' | 'tl;dr' | 'teaser' | 'headline'>('key-points');
   const [summarizationLength, setSummarizationLength] = useState<'short' | 'medium' | 'long'>('medium');
   const [sharedContext, setSharedContext] = useState<string>('');
@@ -130,36 +133,37 @@ function Page() {
 
 
   async function checkTranslationAndTranslate() {
-    if (selectedLanguage === 'en' || !summary) return;
+    const textToTranslate = summary || writtenContent;
+    if (selectedLanguage === 'en' || !textToTranslate) return;
     
     setIsCheckingTranslation(true);
     try {
       // Check if Translation API is supported
       const isSupported = 'translation' in window && 'createTranslator' in (window as any).translation;
       setIsTranslationSupported(isSupported);
-
+  
       if (!isSupported) {
         console.log('Translation API not supported');
         return;
       }
-
+  
       // Check if translation is possible for the selected language
       const canTranslateResult = await (window as any).translation.canTranslate({
         sourceLanguage: 'en',
         targetLanguage: selectedLanguage
       });
-
+  
       if (canTranslateResult === 'readily' || canTranslateResult === 'after-download') {
         const newTranslator = await (window as any).translation.createTranslator({
           sourceLanguage: 'en',
           targetLanguage: selectedLanguage
         });   
-
+  
         setTranslator(newTranslator);
-        await handleTranslation(summary, newTranslator);
+        await handleTranslation(textToTranslate, newTranslator);
       } else {
         console.log('Translation not available for this language pair');
-        setIsTranslationSupported(false);  // Fixed variable name
+        setIsTranslationSupported(false);
       }
     } catch (error) {
       console.error('Translation check error:', error);
@@ -172,41 +176,50 @@ function Page() {
   // New function for handling writing
   async function handleStreamingWrite() {
     if (!writer || !topic.trim()) return;
-  
+
     try {
       setIsWriting(true);
       setWrittenContent('');
-  
-      // First try streaming approach
+
+      const writeOptions = {
+        context: `Create detailed notes about the following topic:\n\n${topic}`,
+        tone: writerTone,
+        length: writerLength,
+        format: "markdown"
+      };
+
+      let content = '';
+
       try {
-        const stream = await writer.writeStreaming(topic, {
-          context: `Create detailed notes about the following topic:\n\n${topic}`,
-          tone: writerTone,
-          length: writerLength,
-          format: "markdown"
-        });
-  
-        let content = '';
+        // Attempt streaming first
+        const stream = await writer.writeStreaming(topic, writeOptions);
+
+        // Verify stream is an async iterable
         if (stream && typeof stream[Symbol.asyncIterator] === 'function') {
+          let receivedChunks = 0;
           for await (const chunk of stream) {
             if (typeof chunk === 'string') {
-              content += chunk;
-              setWrittenContent(content);
+              // Add chunk only if it's unique and not empty
+              if (chunk.trim() && !content.includes(chunk.trim())) {
+                content += chunk;
+                setWrittenContent(content);
+                receivedChunks++;
+              }
             }
           }
+
+          // If no meaningful chunks received, fall back to regular write
+          if (receivedChunks === 0) {
+            throw new Error('No meaningful chunks received');
+          }
         } else {
-          // If stream is not properly iterable, throw error to trigger fallback
-          throw new Error('Stream not properly initialized');
+          throw new Error('Invalid stream');
         }
       } catch (streamError) {
         console.warn("Streaming failed, falling back to regular write:", streamError);
-        // Fallback to regular write
-        const content = await writer.write(topic, {
-          context: `Create detailed notes about the following topic:\n\n${topic}`,
-          tone: writerTone,
-          length: writerLength,
-          format: "markdown"
-        });
+
+        // Fallback to regular write method
+        content = await writer.write(topic, writeOptions);
         setWrittenContent(content);
       }
     } catch (error) {
@@ -219,18 +232,18 @@ function Page() {
 
   async function handleStreamingSummarize() {
     if (!summarizer || !uploadedText.trim()) return;
-  
+
     try {
       setIsLoading(true);
       setSummary('');
       setTranslatedSummary('');
-  
+
       const stream = await summarizer.summarizeStreaming(uploadedText, {
         context: sharedContext || "Provide a clear and concise summary.",
         type: summarizationType,
         length: summarizationLength
       });
-  
+
       let summaryText = '';
       for await (const chunk of stream) {
         summaryText = chunk;
@@ -246,14 +259,14 @@ function Page() {
 
   async function handleTranslation(textToTranslate: string, currentTranslator: any) {
     if (!currentTranslator || !textToTranslate || selectedLanguage === 'en') return;
-
+  
     try {
       setIsTranslating(true);
       const translatedText = await currentTranslator.translate(textToTranslate);
       setTranslatedSummary(translatedText);
     } catch (error) {
       console.error("Translation error:", error);
-      setTranslatedSummary('Error translating summary');
+      setTranslatedSummary('Error translating text');
     } finally {
       setIsTranslating(false);
     }
@@ -282,102 +295,99 @@ function Page() {
       setIsWriting(false);
     }
   }
-  
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 max-h-screen">
       <div className="space-y-4">
-        {/* Upload Notes Section */}
         <Card className="p-4">
-          <h2 className="text-lg font-semibold mb-4">Upload Notes</h2>
-          <FileUpload onFileUpload={setUploadedText} />
-          
-          <div className="mt-4 space-y-3">
-            <div>
-              <label className="block text-sm font-medium mb-1">Summarization Type:</label>
-              <Select value={summarizationType} onValueChange={(value) => setSummarizationType(value as any)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="key-points">Key Points</SelectItem>
-                  <SelectItem value="tl;dr">TL;DR</SelectItem>
-                  <SelectItem value="teaser">Teaser</SelectItem>
-                  <SelectItem value="headline">Headline</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Length:</label>
-              <Select value={summarizationLength} onValueChange={(value) => setSummarizationLength(value as any)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select length" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="short">Short</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="long">Long</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button
-              onClick={handleStreamingSummarize}
-              disabled={isLoading || !uploadedText}
-              className="w-full"
-            >
-              {isLoading ? 'Summarizing...' : 'Summarize Text'}
-            </Button>
-          </div>
-        </Card>
-
-        {/* AI Writing Assistant Section */}
-        <Card className="p-4">
-          <h2 className="text-lg font-semibold mb-4">AI Writing Assistant</h2>
-          <div className="space-y-3">
-            <Textarea
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="Enter your prompt..."
-              className="min-h-[100px]"
-            />
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Tone:</label>
-              <Select value={writerTone} onValueChange={(value) => setWriterTone(value as any)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select tone" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="formal">Formal</SelectItem>
-                  <SelectItem value="neutral">Neutral</SelectItem>
-                  <SelectItem value="casual">Casual</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Length:</label>
-              <Select value={writerLength} onValueChange={(value) => setWriterLength(value as any)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select length" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="short">Short</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="long">Long</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button
-              onClick={handleStreamingWrite}
-              disabled={isWriting || !topic.trim()}
-              className="w-full"
-            >
-              {isWriting ? 'Writing...' : 'Generate Content'}
-            </Button>
-          </div>
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "upload" | "write")}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="upload">Summarize Notes</TabsTrigger>
+              <TabsTrigger value="write">AI Writing Assistant</TabsTrigger>
+            </TabsList>
+            <TabsContent value="upload">
+              <div className="space-y-4">
+                <FileUpload onFileUpload={setUploadedText} />
+                <div>
+                  <label className="block text-sm font-medium mb-1">Summarization Type:</label>
+                  <Select value={summarizationType} onValueChange={(value) => setSummarizationType(value as any)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="key-points">Key Points</SelectItem>
+                      <SelectItem value="tl;dr">TL;DR</SelectItem>
+                      <SelectItem value="teaser">Teaser</SelectItem>
+                      <SelectItem value="headline">Headline</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Length:</label>
+                  <Select value={summarizationLength} onValueChange={(value) => setSummarizationLength(value as any)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select length" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="short">Short</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="long">Long</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={handleStreamingSummarize}
+                  disabled={isLoading || !uploadedText}
+                  className="w-full"
+                >
+                  {isLoading ? 'Summarizing...' : 'Summarize Text'}
+                </Button>
+              </div>
+            </TabsContent>
+            <TabsContent value="write">
+              <div className="space-y-4">
+                <Textarea
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  placeholder="Enter your prompt..."
+                  className="min-h-[100px]"
+                />
+                <div>
+                  <label className="block text-sm font-medium mb-1">Tone:</label>
+                  <Select value={writerTone} onValueChange={(value) => setWriterTone(value as any)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select tone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="formal">Formal</SelectItem>
+                      <SelectItem value="neutral">Neutral</SelectItem>
+                      <SelectItem value="casual">Casual</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Length:</label>
+                  <Select value={writerLength} onValueChange={(value) => setWriterLength(value as any)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select length" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="short">Short</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="long">Long</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={handleStreamingWrite}
+                  disabled={isWriting || !topic.trim()}
+                  className="w-full"
+                >
+                  {isWriting ? 'Writing...' : 'Generate Content'}
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
         </Card>
       </div>
 
@@ -399,36 +409,30 @@ function Page() {
 
           <Button
             onClick={() => checkTranslationAndTranslate()}
-            disabled={isTranslating || selectedLanguage === 'en' || !summary}
+            disabled={isTranslating || selectedLanguage === 'en' || (!summary && !writtenContent)}
             className="w-full mt-2"
           >
-            {isTranslating ? 'Translating...' : 'Translate Text'}
+            {isTranslating ? 'Translating...' : 'Translate'}
           </Button>
         </div>
 
         <div className="flex-1 overflow-auto">
-          {summary && (
+          {translatedSummary ? (
+            <div className="prose max-w-none">
+              <Markdown>{translatedSummary}</Markdown>
+            </div>
+          ) : summary ? (
             <div className="prose max-w-none">
               <Markdown>{summary}</Markdown>
             </div>
-          )}
-          
-          {writtenContent && (
-            <div className="prose max-w-none mt-4">
+          ) : writtenContent ? (
+            <div className="prose max-w-none">
               <Markdown>{writtenContent}</Markdown>
             </div>
-          )}
-          
-          {translatedSummary && (
-            <div className="prose max-w-none mt-4">
-              <Markdown>{translatedSummary}</Markdown>
-            </div>
-          )}
+          ) : null}
         </div>
       </Card>
-    </div>
-  )
+    </div>)
 }
-
 
 export default Page;
