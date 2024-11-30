@@ -101,7 +101,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload }) => {
         </p>
       ) : (
         <p>
-          Drag 'n' drop your notes
+          Drag &apos;n&apos; drop your notes
         </p>
       )}
     </div>

@@ -15,36 +15,70 @@ import { Textarea } from "@/components/ui/textarea";
 import React, { useEffect, useState } from "react";
 import Markdown from "react-markdown";
 
-interface Summarizer {
-  capabilities: (options: { apiKey: string }) => Promise<{ available: string }>;
-  create: (options: any) => Promise<any>;
+interface SummarizerInstance {
   summarizeStreaming: (
     text: string,
-    options: { context: string }
-  ) => Promise<AsyncIterableIterator<string>>;
+    options: {
+      context?: string,
+      type?: SummarizationType,
+      length?: ContentLength
+    }
+  ) => AsyncIterableIterator<string>;
+}
+
+interface WriterInstance {
+  write: (text: string, options?: WriterOptions) => Promise<string>;
+  writeStreaming: (text: string, options?: WriterOptions) => Promise<AsyncIterableIterator<string>>;
+}
+
+interface Summarizer {
+  capabilities: () => Promise<{ available: string }>;
+  create: (options: SummarizerOptions) => Promise<SummarizerInstance>;
 }
 
 interface Writer {
-  create: (options: any) => Promise<any>;
-  write: (text: string, options?: any) => Promise<string>;
-  writeStreaming: (text: string, options?: any) => Promise<AsyncIterableIterator<string>>;
+  create: (options: WriterOptions) => Promise<WriterInstance>;
+}
+
+interface TranslatorInstance {
+  translate: (text: string) => Promise<string>;
 }
 
 interface AI {
-  summarizer: Summarizer;
-  writer: Writer;
-  translation?: {
-    createTranslator: (options: { sourceLanguage: string; targetLanguage: string }) => Promise<any>;
-    canTranslate: (options: { sourceLanguage: string; targetLanguage: string }) => Promise<string>;
-  };
+  summarizer?: Summarizer;
+  writer?: Writer;
+}
+
+type SummarizationType = 'key-points' | 'tl;dr' | 'teaser' | 'headline';
+type ContentLength = 'short' | 'medium' | 'long';
+type WriterTone = 'formal' | 'neutral' | 'casual';
+
+interface WriterOptions {
+  context?: string;
+  tone?: WriterTone;
+  length?: ContentLength;
+  format?: string;
+}
+
+interface SummarizerOptions {
+  context?: string;
+  type?: SummarizationType;
+  format?: string;
+  length?: ContentLength;
+  
+}
+
+interface TranslationAPI {
+  createTranslator: (options: { sourceLanguage: string; targetLanguage: string }) => Promise<TranslatorInstance>;
+  canTranslate: (options: { sourceLanguage: string; targetLanguage: string }) => Promise<string>;
 }
 
 declare global {
   interface Window {
     ai: AI;
+    translation: TranslationAPI;
   }
 }
-
 
 const SUPPORTED_LANGUAGES = [
   { code: 'en', name: 'English' },
@@ -60,8 +94,8 @@ const SUPPORTED_LANGUAGES = [
 ];
 
 function Page() {
-  const [summarizer, setSummarizer] = useState<any>(null);
-  const [writer, setWriter] = useState<any>(null);
+  const [summarizer, setSummarizer] = useState<SummarizerInstance | null>(null);
+  const [writer, setWriter] = useState<WriterInstance | null>(null);
   const [uploadedText, setUploadedText] = useState<string>('');
   const [summary, setSummary] = useState<string>('');
   const [translatedSummary, setTranslatedSummary] = useState<string>('');
@@ -69,52 +103,48 @@ function Page() {
   const [isWriting, setIsWriting] = useState<boolean>(false);
   const [isTranslating, setIsTranslating] = useState<boolean>(false);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('en');
-  const [translator, setTranslator] = useState<any>(null);
+
   const [isTranslationSupported, setIsTranslationSupported] = useState<boolean | null>(null);
   const [isCheckingTranslation, setIsCheckingTranslation] = useState<boolean>(false);
 
   const [activeTab, setActiveTab] = useState<"upload" | "write">("upload")
 
-  const [summarizationType, setSummarizationType] = useState<'key-points' | 'tl;dr' | 'teaser' | 'headline'>('key-points');
-  const [summarizationLength, setSummarizationLength] = useState<'short' | 'medium' | 'long'>('medium');
-  const [sharedContext, setSharedContext] = useState<string>('');
+  const [summarizationType, setSummarizationType] = useState<SummarizationType>('key-points');
+  const [summarizationLength, setSummarizationLength] = useState<ContentLength>('medium');
+  const sharedContext = "Provide a clear and concise summary.";
 
   const [topic, setTopic] = useState<string>('');
   const [writtenContent, setWrittenContent] = useState<string>('');
-  const [writerTone, setWriterTone] = useState<'formal' | 'neutral' | 'casual'>('neutral');
-  const [writerLength, setWriterLength] = useState<'short' | 'medium' | 'long'>('medium');
+  const [writerTone, setWriterTone] = useState<WriterTone>('neutral');
+  const [writerLength, setWriterLength] = useState<ContentLength>('medium');
 
-
-  // Initialize writer and summarizer
   useEffect(() => {
     async function initialize() {
-      const apiKey = "ApwWWZ4FuIAquQu5SWgRRB9dExHt76gc7yVN4Wo8hPdztL3M1284HOwIydPLt+gpZBrHJ0g/hkY4JC0WMIFOmwUAAAByeyJvcmlnaW4iOiJodHRwczovL25vdGVlYXNlLnZlcmNlbC5hcHA6NDQzIiwiZmVhdHVyZSI6IkFJU3VtbWFyaXphdGlvbkFQSSIsImV4cGlyeSI6MTc1MzE0MjQwMCwiaXNTdWJkb21haW4iOnRydWV9";
-
+      
       try {
-        // Initialize summarizer
+        //  Initialize summarizer
         if (window.ai?.summarizer) {
-          const capabilities = await window.ai.summarizer.capabilities({ apiKey });
+          const capabilities = await window.ai.summarizer.capabilities();
           if (capabilities.available !== "no") {
             const newSummarizer = await window.ai.summarizer.create({
-              sharedContext: "This is a general-purpose text summarization context.",
+              context: "This is a general-purpose text summarization context.",
               type: "key-points",
               format: "markdown",
               length: "medium",
-              apiKey,
+              
             });
             setSummarizer(newSummarizer);
           }
         }
 
-        // Initialize writer
+        //  Initialize writer
         if (window.ai?.writer) {
           try {
             const newWriter = await window.ai.writer.create({
-              sharedContext: "This is a note-taking context.",
+              context: "This is a note-taking context.",
               tone: "neutral",
               format: "markdown",
               length: "medium",
-              apiKey,
             });
             setWriter(newWriter);
           } catch (error) {
@@ -131,35 +161,31 @@ function Page() {
     initialize();
   }, []);
 
-
   async function checkTranslationAndTranslate() {
     const textToTranslate = summary || writtenContent;
     if (selectedLanguage === 'en' || !textToTranslate) return;
-    
+
     setIsCheckingTranslation(true);
     try {
-      // Check if Translation API is supported
-      const isSupported = 'translation' in window && 'createTranslator' in (window as any).translation;
+      const isSupported = 'translation' in window;
       setIsTranslationSupported(isSupported);
-  
+
       if (!isSupported) {
         console.log('Translation API not supported');
         return;
       }
-  
-      // Check if translation is possible for the selected language
-      const canTranslateResult = await (window as any).translation.canTranslate({
+
+      const canTranslateResult = await window.translation.canTranslate({
         sourceLanguage: 'en',
         targetLanguage: selectedLanguage
       });
-  
+
       if (canTranslateResult === 'readily' || canTranslateResult === 'after-download') {
-        const newTranslator = await (window as any).translation.createTranslator({
+        const newTranslator = await window.translation.createTranslator({
           sourceLanguage: 'en',
           targetLanguage: selectedLanguage
-        });   
-  
-        setTranslator(newTranslator);
+        });
+
         await handleTranslation(textToTranslate, newTranslator);
       } else {
         console.log('Translation not available for this language pair');
@@ -173,7 +199,6 @@ function Page() {
     }
   }
 
-  // New function for handling writing
   async function handleStreamingWrite() {
     if (!writer || !topic.trim()) return;
 
@@ -181,7 +206,7 @@ function Page() {
       setIsWriting(true);
       setWrittenContent('');
 
-      const writeOptions = {
+      const writeOptions: WriterOptions = {
         context: `Create detailed notes about the following topic:\n\n${topic}`,
         tone: writerTone,
         length: writerLength,
@@ -191,15 +216,12 @@ function Page() {
       let content = '';
 
       try {
-        // Attempt streaming first
         const stream = await writer.writeStreaming(topic, writeOptions);
 
-        // Verify stream is an async iterable
         if (stream && typeof stream[Symbol.asyncIterator] === 'function') {
           let receivedChunks = 0;
           for await (const chunk of stream) {
             if (typeof chunk === 'string') {
-              // Add chunk only if it's unique and not empty
               if (chunk.trim() && !content.includes(chunk.trim())) {
                 content += chunk;
                 setWrittenContent(content);
@@ -208,7 +230,6 @@ function Page() {
             }
           }
 
-          // If no meaningful chunks received, fall back to regular write
           if (receivedChunks === 0) {
             throw new Error('No meaningful chunks received');
           }
@@ -217,8 +238,6 @@ function Page() {
         }
       } catch (streamError) {
         console.warn("Streaming failed, falling back to regular write:", streamError);
-
-        // Fallback to regular write method
         content = await writer.write(topic, writeOptions);
         setWrittenContent(content);
       }
@@ -239,7 +258,7 @@ function Page() {
       setTranslatedSummary('');
 
       const stream = await summarizer.summarizeStreaming(uploadedText, {
-        context: sharedContext || "Provide a clear and concise summary.",
+        context: sharedContext,
         type: summarizationType,
         length: summarizationLength
       });
@@ -257,9 +276,9 @@ function Page() {
     }
   }
 
-  async function handleTranslation(textToTranslate: string, currentTranslator: any) {
+  async function handleTranslation(textToTranslate: string, currentTranslator: TranslatorInstance) {
     if (!currentTranslator || !textToTranslate || selectedLanguage === 'en') return;
-  
+
     try {
       setIsTranslating(true);
       const translatedText = await currentTranslator.translate(textToTranslate);
@@ -269,30 +288,6 @@ function Page() {
       setTranslatedSummary('Error translating text');
     } finally {
       setIsTranslating(false);
-    }
-  }
-
-  // Fallback for when streaming isn't available
-  async function handleWrite() {
-    if (!writer || !topic.trim()) return;
-
-    try {
-      setIsWriting(true);
-      setWrittenContent('');
-
-      const content = await writer.write(topic, {
-        context: `Create detailed notes about the following topic:\n\n${topic}`,
-        tone: writerTone,
-        length: writerLength,
-        format: "markdown"
-      });
-
-      setWrittenContent(content);
-    } catch (error) {
-      console.error("Writing error:", error);
-      setWrittenContent('Error generating content. Please try again.');
-    } finally {
-      setIsWriting(false);
     }
   }
 
@@ -310,7 +305,7 @@ function Page() {
                 <FileUpload onFileUpload={setUploadedText} />
                 <div>
                   <label className="block text-sm font-medium mb-1">Summarization Type:</label>
-                  <Select value={summarizationType} onValueChange={(value) => setSummarizationType(value as any)}>
+                  <Select value={summarizationType} onValueChange={(value) => setSummarizationType(value as SummarizationType)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
@@ -324,7 +319,7 @@ function Page() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Length:</label>
-                  <Select value={summarizationLength} onValueChange={(value) => setSummarizationLength(value as any)}>
+                  <Select value={summarizationLength} onValueChange={(value) => setSummarizationLength(value as ContentLength)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select length" />
                     </SelectTrigger>
@@ -354,7 +349,7 @@ function Page() {
                 />
                 <div>
                   <label className="block text-sm font-medium mb-1">Tone:</label>
-                  <Select value={writerTone} onValueChange={(value) => setWriterTone(value as any)}>
+                  <Select value={writerTone} onValueChange={(value) => setWriterTone(value as WriterTone)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select tone" />
                     </SelectTrigger>
@@ -367,7 +362,7 @@ function Page() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Length:</label>
-                  <Select value={writerLength} onValueChange={(value) => setWriterLength(value as any)}>
+                  <Select value={writerLength} onValueChange={(value) => setWriterLength(value as ContentLength)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select length" />
                     </SelectTrigger>
@@ -408,12 +403,26 @@ function Page() {
           </Select>
 
           <Button
-            onClick={() => checkTranslationAndTranslate()}
-            disabled={isTranslating || selectedLanguage === 'en' || (!summary && !writtenContent)}
+            onClick={checkTranslationAndTranslate}
+            disabled={
+              isTranslating ||
+              isCheckingTranslation ||
+              selectedLanguage === 'en' ||
+              (!summary && !writtenContent) ||
+              isTranslationSupported === false
+            }
             className="w-full mt-2"
           >
-            {isTranslating ? 'Translating...' : 'Translate'}
+            {isCheckingTranslation ? 'translating...' :
+              isTranslating ? 'Translating...' :
+                'Translate'}
           </Button>
+
+          {isTranslationSupported === false && (
+            <p className="text-red-500 mt-2 text-sm">
+              Translation is not available for this language.
+            </p>
+          )}
         </div>
 
         <div className="flex-1 overflow-auto">
