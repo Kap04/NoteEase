@@ -1,6 +1,16 @@
 'use client'
 
 import FileUpload from "@/components/FileUpload";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea";
 import React, { useEffect, useState } from "react";
 import Markdown from "react-markdown";
 
@@ -272,350 +282,152 @@ function Page() {
       setIsWriting(false);
     }
   }
-
-  // return (
-  //   <div className="flex h-screen">
-  //     {/* Left sidebar - 1/3 width */}
-  //     <div className="w-1/3 p-4 border-r overflow-y-auto bg-gray-50">
-  //       <h1 className="text-2xl font-bold mb-4">Note Taking Assistant</h1>
-        
-  //       {/* Writer section */}
-  //       <div className="mb-6 space-y-4">
-  //         <div>
-  //           <label className="block mb-2 text-sm font-medium">Write Notes About:</label>
-  //           <textarea 
-  //             value={topic}
-  //             onChange={(e) => setTopic(e.target.value)}
-  //             placeholder="Enter a topic or concept..."
-  //             className="w-full p-2 border rounded text-sm h-20 resize-none"
-  //           />
-  //         </div>
-
-  //         <div className="space-y-2">
-  //           <div className="flex space-x-2">
-  //             <select 
-  //               value={writerTone}
-  //               onChange={(e) => setWriterTone(e.target.value as any)}
-  //               className="p-2 border rounded text-sm flex-1"
-  //             >
-  //               <option value="formal">Formal</option>
-  //               <option value="neutral">Neutral</option>
-  //               <option value="casual">Casual</option>
-  //             </select>
-
-  //             <select 
-  //               value={writerLength}
-  //               onChange={(e) => setWriterLength(e.target.value as any)}
-  //               className="p-2 border rounded text-sm flex-1"
-  //             >
-  //               <option value="short">Short</option>
-  //               <option value="medium">Medium</option>
-  //               <option value="long">Long</option>
-  //             </select>
-  //           </div>
-
-  //           <button 
-  //             onClick={handleStreamingWrite}
-  //             disabled={!topic.trim() || isWriting || !writer}
-  //             className="w-full bg-green-500 text-white px-4 py-2 rounded disabled:bg-gray-300 text-sm"
-  //           >
-  //             {isWriting ? 'Writing...' : writer ? 'Write Notes' : 'Writer API not available'}
-  //           </button>
-  //         </div>
-  //       </div>
-
-  //       <div className="border-t pt-6">
-  //         <h2 className="text-lg font-semibold mb-4">Or Summarize Document</h2>
-  //         {/* ... (keep existing FileUpload and summarization controls) */}
-  //         <div className="space-y-4">
-  //         <FileUpload onFileUpload={setUploadedText} />
-          
-  //         <div>
-  //           <label className="block mb-2 text-sm font-medium">Summary Type</label>
-  //           <select 
-  //             value={summarizationType}
-  //             onChange={(e) => setSummarizationType(e.target.value as any)}
-  //             className="w-full p-2 border rounded text-sm"
-  //           >
-  //             <option value="key-points">Key Points</option>
-  //             <option value="tl;dr">TL;DR</option>
-  //             <option value="teaser">Teaser</option>
-  //             <option value="headline">Headline</option>
-  //           </select>
-  //         </div>
-
-  //         <div>
-  //           <label className="block mb-2 text-sm font-medium">Length</label>
-  //           <select 
-  //             value={summarizationLength}
-  //             onChange={(e) => setSummarizationLength(e.target.value as any)}
-  //             className="w-full p-2 border rounded text-sm"
-  //           >
-  //             <option value="short">Short</option>
-  //             <option value="medium">Medium</option>
-  //             <option value="long">Long</option>
-  //           </select>
-  //         </div>
-
-  //         <div>
-  //           <label className="block mb-2 text-sm font-medium">Context (Optional)</label>
-  //           <textarea 
-  //             value={sharedContext}
-  //             onChange={(e) => setSharedContext(e.target.value)}
-  //             placeholder="Add context to guide summarization..."
-  //             className="w-full p-2 border rounded text-sm h-20"
-  //           />
-  //         </div>
-
-  //         <button 
-  //           onClick={handleStreamingSummarize}
-  //           disabled={!uploadedText.trim() || isLoading}
-  //           className="w-full bg-blue-500 text-white px-4 py-2 rounded disabled:bg-gray-300 text-sm"
-  //         >
-  //           {isLoading ? 'Summarizing...' : 'Generate Summary'}
-  //         </button>
-  //       </div>
-
-  //       </div>
-  //     </div>
-
-  //     {/* Main content - 2/3 width */}
-  //     <div className="w-2/3 p-6 overflow-y-auto">
-  //       <div className="mb-4 flex items-center justify-end">
-  //         <div className="flex items-center space-x-2">
-  //           <label className="text-sm font-medium">Translation:</label>
-  //           <select 
-  //             value={selectedLanguage}
-  //             onChange={(e) => {
-  //               setSelectedLanguage(e.target.value);
-  //               setTranslatedSummary('');
-  //               setIsTranslationSupported(null);
-  //             }}
-  //             className="p-2 border rounded text-sm w-48"
-  //           >
-  //             {SUPPORTED_LANGUAGES.map(lang => (
-  //               <option key={lang.code} value={lang.code}>
-  //                 {lang.name}
-  //               </option>
-  //             ))}
-  //           </select>
-  //           <button
-  //             onClick={checkTranslationAndTranslate}
-  //             disabled={!summary || selectedLanguage === 'en' || isCheckingTranslation || isTranslating}
-  //             className="bg-blue-500 text-white px-4 py-2 rounded disabled:bg-gray-300 text-sm"
-  //           >
-  //             {isCheckingTranslation ? 'Checking...' : isTranslating ? 'Translating...' : 'Translate'}
-  //           </button>
-  //           {isTranslationSupported === false && (
-  //             <span className="text-sm text-red-500">Translation not supported</span>
-  //           )}
-  //         </div>
-  //       </div>
-
-  //       <div className="space-y-6">
-  //         {summary && (
-  //           <div className="p-6 border rounded-lg bg-white shadow-sm">
-  //             <h2 className="text-lg font-semibold mb-4">
-  //               {selectedLanguage === 'en' ? 'Summary' : 
-  //                 `Summary (${SUPPORTED_LANGUAGES.find(lang => lang.code === selectedLanguage)?.name})`}
-  //             </h2>
-              
-  //             {selectedLanguage === 'en' ? (
-  //               <Markdown className="prose">{summary}</Markdown>
-  //             ) : (
-  //               <Markdown className="prose">
-  //                 {translatedSummary || summary}
-  //               </Markdown>
-  //             )}
-  //           </div>
-  //         )}
-
-  //         {!summary && !isLoading && (
-  //           <div className="flex items-center justify-center h-64 text-gray-500">
-  //             Upload a document and click Generate Summary to begin
-  //           </div>
-  //         )}
-  //       </div>
-  //     </div>
-  //   </div>
-  // );
+  
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
-      <h1 className="text-3xl font-bold mb-6">Smart Note Taking App</h1>
-      
-      {/* File Upload Section */}
-      <div className="mb-8 p-4 bg-gray-50 rounded-lg">
-        <h2 className="text-xl font-semibold mb-4">Text Summarization</h2>
-        <FileUpload onFileUpload={setUploadedText} />
-        
-        {uploadedText && (
-          <div className="mt-4">
-            <h3 className="font-medium mb-2">Uploaded Text:</h3>
-            <div className="bg-white p-3 rounded border max-h-40 overflow-y-auto">
-              {uploadedText}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 max-h-screen">
+      <div className="space-y-4">
+        {/* Upload Notes Section */}
+        <Card className="p-4">
+          <h2 className="text-lg font-semibold mb-4">Upload Notes</h2>
+          <FileUpload onFileUpload={setUploadedText} />
+          
+          <div className="mt-4 space-y-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">Summarization Type:</label>
+              <Select value={summarizationType} onValueChange={(value) => setSummarizationType(value as any)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="key-points">Key Points</SelectItem>
+                  <SelectItem value="tl;dr">TL;DR</SelectItem>
+                  <SelectItem value="teaser">Teaser</SelectItem>
+                  <SelectItem value="headline">Headline</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          </div>
-        )}
-  
-        {/* Summarization Controls */}
-        <div className="mt-4 space-y-3">
-          <div>
-            <label className="block text-sm font-medium mb-1">Summarization Type:</label>
-            <select
-              value={summarizationType}
-              onChange={(e) => setSummarizationType(e.target.value as any)}
-              className="w-full p-2 border rounded"
-            >
-              <option value="key-points">Key Points</option>
-              <option value="tl;dr">TL;DR</option>
-              <option value="teaser">Teaser</option>
-              <option value="headline">Headline</option>
-            </select>
-          </div>
-  
-          <div>
-            <label className="block text-sm font-medium mb-1">Length:</label>
-            <select
-              value={summarizationLength}
-              onChange={(e) => setSummarizationLength(e.target.value as any)}
-              className="w-full p-2 border rounded"
-            >
-              <option value="short">Short</option>
-              <option value="medium">Medium</option>
-              <option value="long">Long</option>
-            </select>
-          </div>
-  
-          <button
-            onClick={handleStreamingSummarize}
-            disabled={isLoading || !uploadedText}
-            className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:bg-gray-300"
-          >
-            {isLoading ? 'Summarizing...' : 'Summarize Text'}
-          </button>
-        </div>
-  
-        {/* Summary Display */}
-        {summary && (
-          <div className="mt-4">
-            <h3 className="font-medium mb-2">Summary:</h3>
-            <div className="bg-white p-3 rounded border">
-              <Markdown>{summary}</Markdown>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Length:</label>
+              <Select value={summarizationLength} onValueChange={(value) => setSummarizationLength(value as any)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select length" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="short">Short</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="long">Long</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+
+            <Button
+              onClick={handleStreamingSummarize}
+              disabled={isLoading || !uploadedText}
+              className="w-full"
+            >
+              {isLoading ? 'Summarizing...' : 'Summarize Text'}
+            </Button>
           </div>
-        )}
-      </div>
-  
-      {/* Writing Section */}
-      <div className="mb-8 p-4 bg-gray-50 rounded-lg">
-        <h2 className="text-xl font-semibold mb-4">AI Writing Assistant</h2>
-        
-        {/* Writing Controls */}
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm font-medium mb-1">Topic or Prompt:</label>
-            <textarea
+        </Card>
+
+        {/* AI Writing Assistant Section */}
+        <Card className="p-4">
+          <h2 className="text-lg font-semibold mb-4">AI Writing Assistant</h2>
+          <div className="space-y-3">
+            <Textarea
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              className="w-full p-2 border rounded min-h-[100px]"
-              placeholder="Enter your topic or what you'd like to write about..."
+              placeholder="Enter your prompt..."
+              className="min-h-[100px]"
             />
-          </div>
-  
-          <div>
-            <label className="block text-sm font-medium mb-1">Tone:</label>
-            <select
-              value={writerTone}
-              onChange={(e) => setWriterTone(e.target.value as any)}
-              className="w-full p-2 border rounded"
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Tone:</label>
+              <Select value={writerTone} onValueChange={(value) => setWriterTone(value as any)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select tone" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="formal">Formal</SelectItem>
+                  <SelectItem value="neutral">Neutral</SelectItem>
+                  <SelectItem value="casual">Casual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Length:</label>
+              <Select value={writerLength} onValueChange={(value) => setWriterLength(value as any)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select length" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="short">Short</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="long">Long</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button
+              onClick={handleStreamingWrite}
+              disabled={isWriting || !topic.trim()}
+              className="w-full"
             >
-              <option value="formal">Formal</option>
-              <option value="neutral">Neutral</option>
-              <option value="casual">Casual</option>
-            </select>
+              {isWriting ? 'Writing...' : 'Generate Content'}
+            </Button>
           </div>
-  
-          <div>
-            <label className="block text-sm font-medium mb-1">Length:</label>
-            <select
-              value={writerLength}
-              onChange={(e) => setWriterLength(e.target.value as any)}
-              className="w-full p-2 border rounded"
-            >
-              <option value="short">Short</option>
-              <option value="medium">Medium</option>
-              <option value="long">Long</option>
-            </select>
-          </div>
-  
-          <button
-            onClick={handleStreamingWrite}
-            disabled={isWriting || !topic.trim()}
-            className="w-full bg-green-500 text-white p-2 rounded hover:bg-green-600 disabled:bg-gray-300"
+        </Card>
+      </div>
+
+      {/* Right Panel - Output Display */}
+      <Card className="p-4 flex flex-col h-full">
+        <div className="mb-4">
+          <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select language" />
+            </SelectTrigger>
+            <SelectContent>
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <SelectItem key={lang.code} value={lang.code}>
+                  {lang.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Button
+            onClick={() => checkTranslationAndTranslate()}
+            disabled={isTranslating || selectedLanguage === 'en' || !summary}
+            className="w-full mt-2"
           >
-            {isWriting ? 'Writing...' : 'Generate Content'}
-          </button>
+            {isTranslating ? 'Translating...' : 'Translate Text'}
+          </Button>
         </div>
-  
-        {/* Written Content Display */}
-        {writtenContent && (
-          <div className="mt-4">
-            <h3 className="font-medium mb-2">Generated Content:</h3>
-            <div className="bg-white p-3 rounded border">
+
+        <div className="flex-1 overflow-auto">
+          {summary && (
+            <div className="prose max-w-none">
+              <Markdown>{summary}</Markdown>
+            </div>
+          )}
+          
+          {writtenContent && (
+            <div className="prose max-w-none mt-4">
               <Markdown>{writtenContent}</Markdown>
             </div>
-          </div>
-        )}
-      </div>
-  
-      {/* Translation Section */}
-      {summary && (
-        <div className="mb-8 p-4 bg-gray-50 rounded-lg">
-          <h2 className="text-xl font-semibold mb-4">Translation</h2>
-          <div className="space-y-3">
-            <select
-              value={selectedLanguage}
-              onChange={(e) => setSelectedLanguage(e.target.value)}
-              className="w-full p-2 border rounded"
-            >
-              {SUPPORTED_LANGUAGES.map((lang) => (
-                <option key={lang.code} value={lang.code}>
-                  {lang.name}
-                </option>
-              ))}
-            </select>
-  
-            <button
-              onClick={() => checkTranslationAndTranslate()}
-              disabled={isTranslating || selectedLanguage === 'en' || !summary}
-              className="w-full bg-purple-500 text-white p-2 rounded hover:bg-purple-600 disabled:bg-gray-300"
-            >
-              {isTranslating ? 'Translating...' : 'Translate Summary'}
-            </button>
-  
-            {isCheckingTranslation && (
-              <div className="text-gray-600">Checking translation availability...</div>
-            )}
-  
-            {isTranslationSupported === false && (
-              <div className="text-red-500">
-                Translation is not available for this language pair.
-              </div>
-            )}
-  
-            {translatedSummary && (
-              <div className="mt-4">
-                <h3 className="font-medium mb-2">Translated Summary:</h3>
-                <div className="bg-white p-3 rounded border">
-                  <Markdown>{translatedSummary}</Markdown>
-                </div>
-              </div>
-            )}
-          </div>
+          )}
+          
+          {translatedSummary && (
+            <div className="prose max-w-none mt-4">
+              <Markdown>{translatedSummary}</Markdown>
+            </div>
+          )}
         </div>
-      )}
+      </Card>
     </div>
-  );
+  )
 }
 
 
